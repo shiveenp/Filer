@@ -58,7 +58,9 @@ fn main() {
             println!("now I will list all the files");
             for (list, code) in test_bucket.list("/", Some("/")).unwrap() {
                 assert_eq!(200, code);
-                println!("{:?}", list);
+                for obj in list.contents {
+                    println!("{:?}", obj.key);
+                }
             }
         }
     }
