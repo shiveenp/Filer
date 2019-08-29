@@ -54,6 +54,7 @@ fn main() {
         }
 
         SyncType::Download => {
+            // gets the list of files from s3 and scans the dir to see which files aren't present and downloads them
             println!("now I will list all the files");
             for (list, code) in test_bucket.list("/", Some("/")).unwrap() {
                 assert_eq!(200, code);
