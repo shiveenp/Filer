@@ -2,13 +2,13 @@ use s3::bucket::Bucket;
 use s3::credentials::Credentials;
 use s3::region::Region;
 use std::fs::File;
-use std::io::Read;
+use std::io::{Read, Write};
 use std::{env, fs};
 use walkdir::{DirEntry, WalkDir};
 
 enum SyncType {
     Upload,
-    Download
+    Download,
 }
 
 fn main() {
@@ -55,11 +55,23 @@ fn main() {
 
         SyncType::Download => {
             // gets the list of files from s3 and scans the dir to see which files aren't present and downloads them
-            println!("now I will list all the files");
-            for (list, code) in test_bucket.list("/", Some("/")).unwrap() {
+            let mut current_dir_files_list: Vec<&str> = Vec::new();
+            for entry in WalkDir::new(test_directory)
+                .into_iter()
+                .filter_map(|e| e.ok())
+                {
+                    current_dir_files_list.push(entry.path().file_name().unwrap().to_str().unwrap().clone())
+                }
+
+            let results = test_bucket.list("", Some("")).unwrap();
+            for (list, code) in results {
                 assert_eq!(200, code);
-                for obj in list.contents {
-                    println!("{:?}", obj.key);
+                for content in &list.contents {
+                    if !current_dir_files_list.contains(&&*content.key) {
+                        let (data, code) = test_bucket.get_object(content.key.as_ref()).unwrap();
+                        let mut buffer = File::create(test_directory.to_string() + content.key.as_ref()).unwrap();
+                        buffer.write(data.as_ref());
+                    }
                 }
             }
         }
