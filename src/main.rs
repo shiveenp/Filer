@@ -16,7 +16,7 @@ fn main() {
     let bucket_name = "brows3r-test";
     let region = "ap-southeast-2";
     let test_directory = "/Users/Shavz/rust-watcher-test/";
-    let delete_flag = true
+    let delete_flag = true;
     let aws_region: Region = region.parse().unwrap();
     let credentials: Credentials = Credentials::new(None, None, None, None);
     let test_bucket: Bucket = Bucket::new(bucket_name, aws_region, credentials).unwrap();
