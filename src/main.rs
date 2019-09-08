@@ -23,37 +23,46 @@ fn main() {
 
     let mode = SyncType::Sync;
 
-    match mode {
-        SyncType::Upload => {
-            run_upload(test_directory, delete_flag, &test_bucket)
-        }
+    run_s3_sync(test_directory, delete_flag, &test_bucket, mode)
+}
 
-        SyncType::Download => {
-            run_download(test_directory, test_bucket)
-        }
+fn run_s3_sync(test_directory: &str, delete_flag: bool, test_bucket: &Bucket, mode: SyncType) {
+    loop {
+        match mode {
+            SyncType::Upload => {
+                run_upload(test_directory, delete_flag, &test_bucket)
+            }
 
-        SyncType::Sync => {
+            SyncType::Download => {
+                run_download(test_directory, test_bucket)
+            }
 
+            SyncType::Sync => {
+                run_upload(test_directory, false, &test_bucket);
+                run_download(test_directory, test_bucket);
+            }
         }
     }
 }
 
-fn run_upload(test_directory: &str, delete_flag: bool, test_bucket: &Bucket) -> ! {
-    loop {
-        for entry in WalkDir::new(test_directory)
-            .into_iter()
-            .filter_map(|e| e.ok())
-            {
-                let md = entry.metadata().unwrap();
-                if md.is_file() && !entry.file_name().to_str().unwrap().starts_with(".") {
-                    let data_file_result = File::open(entry.path());
-                    let was_ok = data_file_result.is_ok();
-                    if was_ok {
-                        let mut data_file = data_file_result.unwrap();
-                        let mut data_buffer = Vec::new();
+fn run_upload(test_directory: &str, delete_flag: bool, test_bucket: &Bucket) {
+    for entry in WalkDir::new(test_directory)
+        .into_iter()
+        .filter_map(|e| e.ok())
+        {
+            let md = entry.metadata().unwrap();
+            if md.is_file() && !entry.file_name().to_str().unwrap().starts_with(".") {
+                let data_file_result = File::open(entry.path());
+                let was_ok = data_file_result.is_ok();
+                if was_ok {
+                    let mut data_file = data_file_result.unwrap();
+                    let mut data_buffer = Vec::new();
+                    let upload_file_path = entry.path().file_name().unwrap().to_str().unwrap();
+                    let (data, check_if_files_exists) = test_bucket.get_object(upload_file_path).unwrap();
+                    if check_if_files_exists != 200 {
                         data_file.read_to_end(&mut data_buffer);
                         test_bucket.put_object(
-                            entry.path().file_name().unwrap().to_str().unwrap(),
+                            upload_file_path,
                             data_buffer.as_ref(),
                             "text/plain",
                         );
@@ -64,10 +73,10 @@ fn run_upload(test_directory: &str, delete_flag: bool, test_bucket: &Bucket) -> 
                     }
                 }
             }
-    }
+        }
 }
 
-fn run_download(test_directory: &str, test_bucket: Bucket) -> () {
+fn run_download(test_directory: &str, test_bucket: &Bucket) {
     // gets the list of files from s3 and scans the dir to see which files aren't present and downloads them
     let mut current_dir_files_list: Vec<String> = Vec::new();
     for entry in WalkDir::new(test_directory)
