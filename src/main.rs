@@ -67,21 +67,12 @@ fn run_upload(test_directory: &str, delete_flag: bool, test_bucket: &Bucket) {
                     if file_does_not_exist {
                         println!("file not found, uploading {}", upload_file_path);
                         data_file.read_to_end(&mut data_buffer);
-                        if (upload_file_path.eq("Brows3r.mov")) {
-                            println!("uploading with new mime type");
-                            let (result, code) = test_bucket.put_object(
-                                upload_file_path,
-                                data_buffer.as_ref(),
-                                "video/quicktime",
-                            ).unwrap();
-                            println!("upload code is {}", code);
-                        } else {
-                            test_bucket.put_object(
-                                upload_file_path,
-                                data_buffer.as_ref(),
-                                "text/plain",
-                            );
-                        }
+                        test_bucket.put_object(
+                            upload_file_path,
+                            data_buffer.as_ref(),
+                            "text/plain",
+                        );
+
                         // delete file when done if the delete flag is set
                         if delete_flag {
                             fs::remove_file(entry.path());
