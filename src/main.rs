@@ -24,13 +24,12 @@ fn main() {
     let aws_region: Region = region.parse().unwrap();
     let credentials: Credentials = Credentials::new(None, None, None, None);
     let test_bucket: Bucket = Bucket::new(bucket_name, aws_region, credentials).unwrap();
-
     let mode = SyncType::Sync;
-
-    run_s3_sync(test_directory, delete_flag, &test_bucket, mode)
+    let source = "s3";
+    run_s3_sync(test_directory, delete_flag, &test_bucket, mode, source)
 }
 
-fn run_s3_sync(test_directory: &str, delete_flag: bool, test_bucket: &Bucket, mode: SyncType) {
+fn run_s3_sync(test_directory: &str, delete_flag: bool, test_bucket: &Bucket, mode: SyncType, source: &str) {
     loop {
         match mode {
             SyncType::Upload => {
@@ -42,8 +41,7 @@ fn run_s3_sync(test_directory: &str, delete_flag: bool, test_bucket: &Bucket, mo
             }
 
             SyncType::Sync => {
-                run_upload(test_directory, false, &test_bucket);
-                run_download(test_directory, test_bucket);
+                run_sync(test_directory, test_bucket, source)
             }
         }
     }
@@ -108,5 +106,45 @@ fn run_download(test_directory: &str, test_bucket: &Bucket) {
                 println!("file write result is {}", file_write_result.is_ok())
             }
         }
+    }
+}
+
+fn run_sync(test_directory: &str, test_bucket: &Bucket, sync_source: &str) {
+    match sync_source {
+        "directory" => {}
+
+        "s3" => {
+            let mut current_dir_files_list: Vec<String> = Vec::new();
+            for entry in WalkDir::new(test_directory)
+                .into_iter()
+                .filter_map(|e| e.ok())
+                {
+                    let md = entry.metadata().unwrap();
+                    if md.is_file() && !entry.file_name().to_str().unwrap().starts_with(".") {
+                        current_dir_files_list.push(entry.path().file_name().unwrap().to_str().unwrap().to_owned())
+                    }
+                }
+
+            let s3_files_list = test_bucket.list("", Some("")).unwrap();
+
+            // download
+            run_download(test_directory, test_bucket);
+
+            // remove
+            for (list, code) in s3_files_list {
+                let file_keys = &list.contents.into_iter().map(|x|
+                    x.key.to_string())
+                    .collect::<Vec<String>>();
+                println!("file keys are {:?}", file_keys);
+                for current_dir_file in &current_dir_files_list {
+                    println!("checking current dir file: {} not inside file list", current_dir_file);
+                    if !file_keys.contains(&current_dir_file) {
+                        println!("removing file {}", current_dir_file);
+                        fs::remove_file(format!("{}/{}", test_directory, current_dir_file));
+                    }
+                }
+            }
+        }
+        _ => {}
     }
 }
