@@ -111,7 +111,9 @@ fn run_download(test_directory: &str, test_bucket: &Bucket) {
 
 fn run_sync(test_directory: &str, test_bucket: &Bucket, sync_source: &str) {
     match sync_source {
-        "directory" => {}
+        "directory" => {
+            run_upload(test_directory, false, test_bucket);
+        }
 
         "s3" => {
             let mut current_dir_files_list: Vec<String> = Vec::new();
