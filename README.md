@@ -1,6 +1,6 @@
-# Filer
+# Filer 🗄
 
-Filer is a rust service to allow seamless document syncing with a variety of cloud systems. The application is written in [Rust](https://www.rust-lang.org/). Filer is designed to be easy to use, fault tolerant, fast and efficient at using system resources,
+Filer is a rust service to allow seamless document syncing with a variety of cloud systems. The application is written in [Rust](https://www.rust-lang.org/). Filer is designed to be easy to use, fault tolerant, fast and efficient at using system resources.
 
 ## How it works
 
