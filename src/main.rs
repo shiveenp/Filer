@@ -3,7 +3,7 @@ use s3::credentials::Credentials;
 use s3::region::Region;
 use std::fs::File;
 use std::io::{Read, Write};
-use std::{env, fs};
+use std::{env, fs, thread, time};
 use walkdir::{DirEntry, WalkDir};
 
 enum SyncServices {
@@ -25,11 +25,12 @@ fn main() {
     let credentials: Credentials = Credentials::new(None, None, None, None);
     let test_bucket: Bucket = Bucket::new(bucket_name, aws_region, credentials).unwrap();
     let mode = SyncType::Sync;
-    let source = "s3";
+    let source = "directory";
     run_s3_sync(test_directory, delete_flag, &test_bucket, mode, source)
 }
 
 fn run_s3_sync(test_directory: &str, delete_flag: bool, test_bucket: &Bucket, mode: SyncType, source: &str) {
+    let sleep_time = time::Duration::from_secs(1000);
     loop {
         match mode {
             SyncType::Upload => {
@@ -44,6 +45,7 @@ fn run_s3_sync(test_directory: &str, delete_flag: bool, test_bucket: &Bucket, mo
                 run_sync(test_directory, test_bucket, source)
             }
         }
+//        thread::sleep(sleep_time);
     }
 }
 
@@ -112,7 +114,31 @@ fn run_download(test_directory: &str, test_bucket: &Bucket) {
 fn run_sync(test_directory: &str, test_bucket: &Bucket, sync_source: &str) {
     match sync_source {
         "directory" => {
+            // fist upload everything existing
             run_upload(test_directory, false, test_bucket);
+
+            // then delete everything that is in s3 but not in the directory
+            let mut current_dir_files_list: Vec<String> = Vec::new();
+            for entry in WalkDir::new(test_directory)
+                .into_iter()
+                .filter_map(|e| e.ok())
+                {
+                    let md = entry.metadata().unwrap();
+                    if md.is_file() && !entry.file_name().to_str().unwrap().starts_with(".") {
+                        current_dir_files_list.push(entry.path().file_name().unwrap().to_str().unwrap().to_owned())
+                    }
+                }
+
+            let s3_files_list = test_bucket.list("", Some("")).unwrap();
+
+            for (list, code) in s3_files_list {
+                for content in &list.contents {
+                    if !current_dir_files_list.contains(&content.key) {
+                        let (_, delete_op_code) = test_bucket.delete_object(&content.key).unwrap();
+                        assert_eq!(200, code);
+                    }
+                }
+            }
         }
 
         "s3" => {
