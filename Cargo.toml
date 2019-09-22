@@ -1,6 +1,6 @@
 [package]
-name = "rust-cloud-file-watcher"
-version = "0.1.0"
+name = "Filer"
+version = "0.0.1"
 authors = ["shavz <shiveen.pandita@growsuper.com>"]
 edition = "2018"
 
