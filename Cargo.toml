@@ -8,3 +8,5 @@ edition = "2018"
 [dependencies]
 rust-s3 = "0.15.0"
 walkdir = "2"
+clap = { version = "2.32.0", features = ["yaml"] }
+human-panic = "1.0.1"

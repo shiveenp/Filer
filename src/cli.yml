@@ -1,0 +1,27 @@
+name: Filer
+version: "0.0.1"
+about: Rust based file synchronization utility
+args:
+  - bucket:
+      long: bucket
+      value_name: bucket
+      help: Provide the AWS S3 bucket to sync with
+      takes_value: true
+      required: true
+  - awsregion:
+      long: awsregion
+      value_name: awsregion
+      help: Provide the AWS S3 bucket region
+      takes_value: true
+      required: true
+  - synctype:
+      long: synctype
+      value_name: synctype
+      help: Provide the type of sync, Upload, Download or Replicate
+      required: true
+      takes_value: true
+  - syncsource:
+      long: sourcedir
+      value_name: sourcedir
+      help: If sync type is Replicate, we need to provide the source, either the S3 bucket or the current directory
+      takes_value: true
