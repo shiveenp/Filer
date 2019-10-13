@@ -17,8 +17,13 @@ args:
   - synctype:
       long: synctype
       value_name: synctype
-      help: Provide the type of sync, Upload, Download or Replicate
+      help: Provide the type of sync mode, Upload, Download or Replicate
       required: true
+      takes_value: true
+  - syncdir:
+      long: syncdir
+      value_name: syncdir
+      help: Provide the sync directory
       takes_value: true
   - syncsource:
       long: sourcedir

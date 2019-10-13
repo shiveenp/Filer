@@ -16,47 +16,41 @@ enum SyncServices {
     S3,
 }
 
-static ALLOWED_SYNC_TYPES: Vec<&str> = vec!["upload", "download", "replicate"];
-
 fn main() {
     setup_panic!();
     let yaml = load_yaml!("cli.yml");
     let matches = App::from_yaml(yaml).get_matches();
+    let current_working_dir = env::current_dir().unwrap().display().to_string();
     let bucket_name = matches.value_of("bucket").unwrap_or("");
     let region = matches.value_of("awsregion").unwrap_or("");
-    let sync_type = matches.value_of("").unwrap_or("");
-
+    let mode = matches.value_of("synctype").unwrap_or("");
+    let sync_dir = matches.value_of("syncdir").unwrap_or(current_working_dir.as_ref());
+    let syncsource = matches.value_of("syncsource").unwrap_or("");
     let region = "ap-southeast-2";
     let delete_flag = true;
     let aws_region: Region = region.parse().unwrap();
     let credentials: Credentials = Credentials::new(None, None, None, None);
     let test_bucket: Bucket = Bucket::new(bucket_name, aws_region, credentials).unwrap();
-    let mode = SyncType::Replicate;
     let source = "directory";
-    run_s3_sync(test_directory, delete_flag, &test_bucket, mode, source)
+    run_s3_sync(delete_flag, &test_bucket, mode, source, sync_dir)
 }
 
 fn validate_user_input(sync_type: &str) {
-    if !ALLOWED_SYNC_TYPES.contains(&sync_type) {
+    let allowed_sync_types: Vec<&str> = vec!["upload", "download", "replicate"];
+    if !allowed_sync_types.contains(&sync_type) {
         panic!("Unable to recognise given synctype, only following values are accepted: upload, download, replicate")
     }
 }
 
-fn run_s3_sync(
-    test_directory: &str,
-    delete_flag: bool,
-    test_bucket: &Bucket,
-    mode: &str,
-    source: &str,
-) {
+fn run_s3_sync(delete_flag: bool, test_bucket: &Bucket, mode: &str, source: &str, sync_dir: &str) {
     let sleep_time = time::Duration::from_secs(1000);
     loop {
-        match mode.to_lowercase() {
-            &"upload" => run_upload(test_directory, delete_flag, &test_bucket),
+        match mode.to_lowercase().as_str() {
+            "upload" => run_upload(delete_flag, &test_bucket, sync_dir),
 
-            &"download" => run_download(test_directory, test_bucket),
+            "download" => run_download(test_bucket, sync_dir),
 
-            &"replicate" => run_sync(test_directory, test_bucket, source),
+            "replicate" => run_sync(test_bucket, sync_dir, source),
             _ => {
                 panic!("Unable to recognise given sync type");
             }
@@ -65,10 +59,10 @@ fn run_s3_sync(
     }
 }
 
-fn run_upload(test_directory: &str, delete_flag: bool, test_bucket: &Bucket) {
+fn run_upload(delete_flag: bool, test_bucket: &Bucket, sync_dir: &str) {
     for entry in WalkDir::new(".").into_iter().filter_map(|e| e.ok()) {
         let md = entry.metadata().unwrap();
-        if md.is_file() && !entry.file_name().to_str().unwrap().starts_with(".") {
+        if md.is_file() && !entry.file_name().to_str().unwrap().starts_with(sync_dir) {
             let data_file_result = File::open(entry.path());
             let was_ok = data_file_result.is_ok();
             if was_ok {
@@ -92,10 +86,10 @@ fn run_upload(test_directory: &str, delete_flag: bool, test_bucket: &Bucket) {
     }
 }
 
-fn run_download(test_directory: &str, test_bucket: &Bucket) {
+fn run_download(test_bucket: &Bucket, sync_dir: &str) {
     // gets the list of files from s3 and scans the dir to see which files aren't present and downloads them
     let mut current_dir_files_list: Vec<String> = Vec::new();
-    for entry in WalkDir::new(".").into_iter().filter_map(|e| e.ok()) {
+    for entry in WalkDir::new(sync_dir).into_iter().filter_map(|e| e.ok()) {
         current_dir_files_list.push(
             entry
                 .path()
@@ -117,8 +111,8 @@ fn run_download(test_directory: &str, test_bucket: &Bucket) {
                 println!("downloading");
                 let (data, code) = test_bucket.get_object(content.key.as_ref()).unwrap();
                 println!("code was {}", code);
-                let mut buffer =
-                    File::create(test_directory.to_string() + content.key.as_ref()).unwrap();
+                let new_file_path = format!("{}/{}", sync_dir, content.key.as_str());
+                let mut buffer = File::create(new_file_path).unwrap();
                 let file_write_result = buffer.write(data.as_ref());
                 println!("file write result is {}", file_write_result.is_ok())
             }
@@ -126,15 +120,15 @@ fn run_download(test_directory: &str, test_bucket: &Bucket) {
     }
 }
 
-fn run_sync(test_directory: &str, test_bucket: &Bucket, sync_source: &str) {
+fn run_sync(test_bucket: &Bucket, sync_dir: &str, sync_source: &str) {
     match sync_source {
         "directory" => {
             // fist upload everything existing
-            run_upload(test_directory, false, test_bucket);
+            run_upload(false, test_bucket, sync_dir);
 
             // then delete everything that is in s3 but not in the directory
             let mut current_dir_files_list: Vec<String> = Vec::new();
-            for entry in WalkDir::new(".").into_iter().filter_map(|e| e.ok()) {
+            for entry in WalkDir::new(sync_dir).into_iter().filter_map(|e| e.ok()) {
                 let md = entry.metadata().unwrap();
                 if md.is_file() && !entry.file_name().to_str().unwrap().starts_with(".") {
                     current_dir_files_list.push(
@@ -163,7 +157,7 @@ fn run_sync(test_directory: &str, test_bucket: &Bucket, sync_source: &str) {
 
         "s3" => {
             let mut current_dir_files_list: Vec<String> = Vec::new();
-            for entry in WalkDir::new(".").into_iter().filter_map(|e| e.ok()) {
+            for entry in WalkDir::new(sync_dir).into_iter().filter_map(|e| e.ok()) {
                 let md = entry.metadata().unwrap();
                 if md.is_file() && !entry.file_name().to_str().unwrap().starts_with(".") {
                     current_dir_files_list.push(
@@ -181,7 +175,7 @@ fn run_sync(test_directory: &str, test_bucket: &Bucket, sync_source: &str) {
             let s3_files_list = test_bucket.list("", Some("")).unwrap();
 
             // download
-            run_download(test_directory, test_bucket);
+            run_download(test_bucket, sync_dir);
 
             // remove
             for (list, code) in s3_files_list {
@@ -198,7 +192,7 @@ fn run_sync(test_directory: &str, test_bucket: &Bucket, sync_source: &str) {
                     );
                     if !file_keys.contains(&current_dir_file) {
                         println!("removing file {}", current_dir_file);
-                        fs::remove_file(format!("{}/{}", test_directory, current_dir_file));
+                        fs::remove_file(format!("{}", current_dir_file));
                     }
                 }
             }
