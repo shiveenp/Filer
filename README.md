@@ -27,3 +27,5 @@ A sample command for downloading something from an S3 bucket in the current work
 ```bash
 ./Filer --awsregion <your-aws-region> --awskey <your aws key> --awsregion  <your aws region> --bucket <your-bucket-name> --synctype download
 ```
+
+This will start syncing using the current directory as the directory to dowmnload all the files in.

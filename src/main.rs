@@ -25,20 +25,24 @@ fn main() {
     let region = matches.value_of("awsregion").unwrap_or("");
     let mode = matches.value_of("synctype").unwrap_or("");
     let sync_dir = matches.value_of("syncdir").unwrap_or(current_working_dir.as_ref());
-    let syncsource = matches.value_of("syncsource").unwrap_or("");
+    let sync_source = matches.value_of("syncsource").unwrap_or("");
     let region = "ap-southeast-2";
     let delete_flag = true;
     let aws_region: Region = region.parse().unwrap();
     let credentials: Credentials = Credentials::new(None, None, None, None);
     let test_bucket: Bucket = Bucket::new(bucket_name, aws_region, credentials).unwrap();
-    let source = "directory";
-    run_s3_sync(delete_flag, &test_bucket, mode, source, sync_dir)
+    run_s3_sync(delete_flag, &test_bucket, mode, sync_source, sync_dir)
 }
 
-fn validate_user_input(sync_type: &str) {
+fn validate_user_input(mode: &str, sync_source: &str) {
     let allowed_sync_types: Vec<&str> = vec!["upload", "download", "replicate"];
-    if !allowed_sync_types.contains(&sync_type) {
+    if !allowed_sync_types.contains(&mode) {
         panic!("Unable to recognise given synctype, only following values are accepted: upload, download, replicate")
+    }
+    if (mode.eq("replicate")) {
+        if sync_source.eq("") {
+            panic!("Sync source needs to be either cloud or local when running in replicate mode");
+        }
     }
 }
 
@@ -122,7 +126,7 @@ fn run_download(test_bucket: &Bucket, sync_dir: &str) {
 
 fn run_sync(test_bucket: &Bucket, sync_dir: &str, sync_source: &str) {
     match sync_source {
-        "directory" => {
+        "local" => {
             // fist upload everything existing
             run_upload(false, test_bucket, sync_dir);
 
@@ -155,7 +159,7 @@ fn run_sync(test_bucket: &Bucket, sync_dir: &str, sync_source: &str) {
             }
         }
 
-        "s3" => {
+        "cloud" => {
             let mut current_dir_files_list: Vec<String> = Vec::new();
             for entry in WalkDir::new(sync_dir).into_iter().filter_map(|e| e.ok()) {
                 let md = entry.metadata().unwrap();

@@ -28,5 +28,5 @@ args:
   - syncsource:
       long: sourcedir
       value_name: sourcedir
-      help: If sync type is Replicate, we need to provide the source, either the S3 bucket or the current directory
+      help: If sync type is Replicate, we need to provide the source for replication, it can be either cloud or local
       takes_value: true
